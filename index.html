@@ -295,14 +295,6 @@
 </style>
 </head>
 <body>
-<dialog id="acesso">
-  <form id="acesso-form">
-    <label for="acesso-token">Código de acesso ao Meu Treino</label>
-    <input id="acesso-token" type="password" required autocomplete="current-password">
-    <button type="submit">Entrar</button>
-    <p id="acesso-erro" role="status"></p>
-  </form>
-</dialog>
 
 <div id="topbar">
   <div id="topbar-inner">
@@ -725,24 +717,6 @@ function findAlimento(r,id){ if(!r) return null; return r.alimentos.filter(funct
 // ============================================================
 // BACKEND
 // ============================================================
-var apiToken = sessionStorage.getItem('meu-treino-api-token') || '';
-var acesso = document.getElementById('acesso');
-var acessoErro = document.getElementById('acesso-erro');
-
-function pedirAcesso(mensagem) {
-  acessoErro.textContent = mensagem || '';
-  if (!acesso.open) acesso.showModal();
-}
-
-document.getElementById('acesso-form').addEventListener('submit', function(e) {
-  e.preventDefault();
-  var campo = document.getElementById('acesso-token');
-  apiToken = campo.value.trim();
-  campo.value = '';
-  acesso.close();
-  init();
-});
-
 async function gsCall(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
   if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(MEU_TREINO_API_URL)) {
@@ -751,15 +725,10 @@ async function gsCall(fn) {
   var response = await fetch(MEU_TREINO_API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-    body: JSON.stringify({ fn: fn, args: args, token: apiToken })
+    body: JSON.stringify({ fn: fn, args: args })
   });
   if (!response.ok) throw new Error('Falha ao acessar o Apps Script (' + response.status + ').');
   var result = await response.json();
-  if (result.code === 'UNAUTHORIZED') {
-    apiToken = '';
-    sessionStorage.removeItem('meu-treino-api-token');
-    pedirAcesso('Código de acesso inválido.');
-  }
   if (!result.ok) throw new Error(result.error || 'O Apps Script devolveu um erro.');
   return result.data;
 }
@@ -773,10 +742,8 @@ function textoFalhaEnvio(err){
 function erroBackend(err){ console.error(err); toast('Ops, deu erro: '+(err&&err.message?err.message:'tenta de novo')); }
 
 function init(){
-  if (!apiToken) { pedirAcesso(); return; }
   state.pendentes=lsGet(LS_PEND)||[];
   gsCall('getDadosIniciais').then(function(dados){
-    sessionStorage.setItem('meu-treino-api-token', apiToken);
     state.ficha=dados.ficha; state.grupos=dados.grupos;
     state.linkPlanilha=dados.linkPlanilha;
     state.dieta=dados.dieta||{planos:[]};
@@ -789,7 +756,7 @@ function init(){
   }).catch(function(err){
     state.carregando=false;
     render();
-    if (!acesso.open) pedirAcesso(err.message);
+    erroBackend(err);
   });
 }
 
@@ -1570,3 +1537,5 @@ init();
 </script>
 </body>
 </html>
+
+
